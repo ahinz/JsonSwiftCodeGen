@@ -107,3 +107,10 @@ extension String: JSONDecodable {
         return json as? String
     }
 }
+
+func typecastResult<A, B>(a: Result<A>) -> Result<B?> {
+    switch a {
+    case let .Value(x):     return .Value(Box(x.value as? B))
+    case let .Error(error): return .Error(error)
+    }
+}

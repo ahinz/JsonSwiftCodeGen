@@ -24,15 +24,8 @@
   (.replaceAll s "'" ""))
 
 (defn decompose-var [[_ name & other]]
-  (->> other
-       (map str)
-       (map strip-single-quotes)
-       (map (fn [key]
-              (if (.contains key "=")
-                (into [] (.split key "="))
-                [key nil])))
-       (cons ["name" name])
-       (into {})))
+  {"name" name
+   "type" (last (last (filter #(= (first %) 'type=) (partition 2 1 other))))})
 
 (defn process-struct [[_ name & rest]]
   {:name name
@@ -57,9 +50,15 @@
     (generate-curried-static-fn "create" args swift-type body)))
 
 
+;; If we have an optional type we
+;; can just do a result cast instead
+(defn handle-type-assoc [[name type]]
+  (if (.endsWith type "?")
+    (str "typecastResult(d[\"" name "\"])")
+    (str "d[\"" name "\"] >>> " type)))
+
 (defn generate-decode-fn [swift-type args]
-  (let [raw-mappings (map (fn [[name type]]
-                            (str "d[\"" name "\"] >>> " type ".decode")) args)
+  (let [raw-mappings (map handle-type-assoc args)
         mappings (s/split (s/join " <*> \n" raw-mappings) #"\n")
         create-stanza (concat
                         [(str swift-type ".create <^>")]
@@ -88,10 +87,13 @@
 (defn load-sanitized-edn-from-string [edn-as-string]
   (edn/read-string
    (.replaceAll
-    (s/join "\n"
-          (drop-while #(not (.contains % "source_file"))
-                      (s/split edn-as-string #"\n")))
-    "[:@]" "")))
+    (.replaceAll
+     (s/join "\n"
+             (filter #(not (.contains % "import_decl"))
+                     (drop-while #(not (.contains % "source_file"))
+                                 (s/split edn-as-string #"\n"))))
+     "[:@./]" "")
+    "'" "\"")))
 
 ;; (def read-it (load-sanitized-edn-from-string
 ;;               (slurp "/Users/ahinz/src/swift/playground/JsonParserTest/JsonParserTest/test.ast")))
