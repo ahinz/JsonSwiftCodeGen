@@ -55,7 +55,7 @@
 (defn handle-type-assoc [[name type]]
   (if (.endsWith type "?")
     (str "typecastResult(d[\"" name "\"])")
-    (str "d[\"" name "\"] >>> " type)))
+    (str "d[\"" name "\"] >>> " type ".decode")))
 
 (defn generate-decode-fn [swift-type args]
   (let [raw-mappings (map handle-type-assoc args)
